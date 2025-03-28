@@ -240,6 +240,20 @@ async def objekt_search(address: str, options: dict):
                     f"Failed request: Status {response.status}, Response: {await response.text()}")  # Debug: Print the error
                 return None
 
+async def stats(address: str):
+    base_url = f'https://apollo.cafe/api/???/{address}'
+
+    url = f"{base_url}"
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:  # Request successful
+                result = await response.json()
+                return result
+            else:  # Request failed
+                print(
+                    f"Failed request: Status {response.status}, Response: {await response.text()}")  # Debug: Print the error
+                return None
 
 
 if __name__ == "__main__":

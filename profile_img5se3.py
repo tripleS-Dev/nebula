@@ -460,13 +460,13 @@ def season_percent(data):
             season_counts[season] = 0
 
     print(season_counts)
-    # Sort the seasons based on the first letter in reverse order
+    """# Sort the seasons based on the first letter in reverse order
     sorted_seasons = sorted(season_counts.keys(), key=lambda s: s[0], reverse=True)
     # Get the counts in that order
     counts_in_order = [season_counts[season] for season in sorted_seasons]
     print(counts_in_order)
-    print(len(counts_in_order))
-    return counts_in_order
+    print(len(counts_in_order))"""
+    return season_counts
 
 
 async def member_percent(data):

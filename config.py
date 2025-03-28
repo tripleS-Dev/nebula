@@ -32,4 +32,11 @@ artist=[
 
 
 season_color = ['#FFDD00', '#00FF00', '#FF7477', '#B301FE', '#33ecfd']
+season_color_dict = {
+        "atom": "#FFDD00",
+        "binary": "#00FF00",
+        "cream": "#FF7477",
+        "divine": "#B301FE",
+        "ever": "#33ecfd",
+}
 season_names = []
