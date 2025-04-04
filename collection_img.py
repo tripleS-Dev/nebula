@@ -163,7 +163,7 @@ async def process_images(objekt_search_result, start_after, objekt_per_page, tit
     proc_start = time.time()
     print("Starting process_images...")
 
-    base_image = Image.open(f'resource/base_{title.lower()}_{objekt_per_page.lower()}.png')
+    base_image = Image.open(f'resource/base_{title.lower()}_{objekt_per_page}.png')
     objekts = objekt_search_result['objekts'][start_after:start_after + objekt_per_page]
 
     image_urls = []
