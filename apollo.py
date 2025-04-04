@@ -8,6 +8,7 @@ from urllib.parse import quote
 import aiohttp
 import difflib
 from typing import List, Tuple
+from config import como_contract, objekt_contract
 
 
 async def search_objekt_list(address: str, locale):
@@ -57,6 +58,20 @@ async def objekt_list_search_all(address, slug, filters):
                 else:
                     response.raise_for_status()
     return all_objekts
+
+async def objekt_list_search(address, slug, filters):
+    # Remove any keys with None values from filters
+    clean_filters = {k: v for k, v in filters.items() if v is not None}
+    url = f"https://apollo.cafe/api/objekt-list/entries/{slug}/{address}"
+    params = clean_filters.copy()
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, params=params) as response:
+            if response.status == 200:
+                result = await response.json()
+                return result
+            else:
+                response.raise_for_status()
 
 async def search_objekt_meta(info):
     url = f"https://apollo.cafe/api/objekts/metadata/{info['season'].lower()}-{info['member'].lower()}-{info['number']}{info['line'].lower()}"
@@ -241,12 +256,14 @@ async def objekt_search(address: str, options: dict):
                 return None
 
 async def stats(address: str):
-    base_url = f'https://apollo.cafe/api/???/{address}'
+    base_url = f'https://apollo.cafe/api/user/by-address/{address}/stats'
 
     url = f"{base_url}"
-
+    headers = {
+        'Authorization': AUTH_TOKEN
+    }
     async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
+        async with session.get(url, headers=headers) as response:
             if response.status == 200:  # Request successful
                 result = await response.json()
                 return result
@@ -255,8 +272,34 @@ async def stats(address: str):
                     f"Failed request: Status {response.status}, Response: {await response.text()}")  # Debug: Print the error
                 return None
 
+async def como(address: str, artist: str):
+    base_url = f'https://apollo.cafe/api/user/by-address/{address}/como'
 
-if __name__ == "__main__":
+    url = f"{base_url}"
+    headers = {
+        'Authorization': AUTH_TOKEN
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers) as response:
+            if response.status == 200:  # Request successful
+                result = await response.json()
+
+                new_dict = {}
+
+                for i in result:
+                    for k in range(len(list(result[i].keys()))):
+
+                        if list(result[i].keys())[k] == objekt_contract[artist.lower()].lower():
+                            new_dict[int(i)] = result[i][objekt_contract[artist.lower()].lower()]['count']
+
+                return new_dict
+
+            else:  # Request failed
+                print(
+                    f"Failed request: Status {response.status}, Response: {await response.text()}")  # Debug: Print the error
+                return None
+
+"""if __name__ == "__main__":
     # Run the function and print results
     options = {
             "artist": 'tripleS',
@@ -267,4 +310,28 @@ if __name__ == "__main__":
     filters = {k: str(v) for k, v in options.items() if v is not None}
     r = asyncio.run(user_search_by_name('iloveyouyeon',"ko_KR"))
     print(r[1][0])
-    #print(len(r.get('objekts')))
+    #print(len(r.get('objekts')))"""
+
+
+if __name__ == "__main__":
+    r = asyncio.run(como('0x1F38b8c3a5965704a6Ff6E9b750F771DD1C3C9D4', 'tripleS'))
+    """ print(r)
+
+    artist = 'artms'
+    from config import season_percent_value
+
+    for i in r:
+        if not i['artistName'] == artist:
+            pass
+        else:
+            for season in i['seasons']:
+                season_percent_value[season['name']] = season['count']"""
+    print(r)
+    #print(sum(r.values()))
+
+
+
+
+
+
+

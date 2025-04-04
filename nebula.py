@@ -4,6 +4,7 @@ import uuid
 import asyncio
 import os
 import re
+from array import array
 from io import BytesIO
 
 from datetime import datetime, timedelta
@@ -18,6 +19,8 @@ from typing import Optional, List
 import typing
 import pickle
 
+from matplotlib.pyplot import title
+
 import activity_img
 
 import apollo
@@ -27,7 +30,7 @@ import teest
 import profile_img5se3
 import translate
 
-from config import triples_member_names, class_, season, artist
+from config import triples_member_names, class_, season, artist, collection_array
 
 
 import math
@@ -187,6 +190,7 @@ async def member_autocomplete(interaction: discord.Interaction, current: str):
     season=season,
     class_=class_,
     artist=artist,
+    array=collection_array
 )
 @app_commands.autocomplete(member=member_autocomplete)
 @app_commands.autocomplete(cosmo_nickname=name_auto)
@@ -203,6 +207,7 @@ async def collection(
     #gridable: Optional[bool], # cosmo api -> apollo api => Can load gridable status
     sendable: Optional[bool],
     artist: Optional[str],
+    array: Optional[int]
 ):
     print(f"user!!!! : {action.user.name}")
     if member:
@@ -221,8 +226,10 @@ async def collection(
     await action.response.defer(ephemeral=False)
 
 
-
-
+    if array:
+        objekt_per_page = array
+    else:
+        objekt_per_page = 9
 
     # User validation and data retrieval
     cosmo_user, cosmo_address, discord_nickname = await get_user_info(
@@ -253,15 +260,15 @@ async def collection(
     # Fetch search results and total pages
     objekt_search_result = await apollo.objekt_search(cosmo_address, filters)
 
-    total_page = math.ceil(objekt_search_result['total'] / 9)
+    total_page = math.ceil(objekt_search_result['total'] / objekt_per_page)
     page = 1
 
     # Generate initial image
-    img = await collection_img.create_image(options, objekt_search_result, 0, (page, total_page))
+    img = await collection_img.create_image(options, objekt_search_result, 0, (page, total_page), objekt_per_page)
 
     # Create and send the message with pagination view
     view = CollectionView(
-        options, objekt_search_result, cosmo_user, page, total_page
+        options, objekt_search_result, cosmo_user, page, total_page, objekt_per_page
     )
     await action.followup.send(
         files=[discord.File(fp=img, filename=f"{cosmo_user}.webp")], view=view
@@ -338,13 +345,17 @@ async def get_user_info(action, cosmo_nickname, discord_user):
 
 
 class CollectionView(discord.ui.View):
-    def __init__(self, options, objekt_search_result, cosmo_user, page, total_page):
+    def __init__(self, options, objekt_search_result, cosmo_user, page, total_page, objekt_per_page, title_name='Collect', list_slug=None):
         super().__init__(timeout=None)
         self.options = options
         self.objekt_search_result = objekt_search_result
         self.cosmo_user = cosmo_user
         self.page = page
         self.total_page = total_page
+
+        self.objekt_per_page = objekt_per_page
+        self.title_name = title_name
+
 
         # Buttons
         self.first_page_button = discord.ui.Button(
@@ -374,6 +385,14 @@ class CollectionView(discord.ui.View):
         self.add_item(self.next_page_button)
         self.add_item(self.last_page_button)
 
+        if list_slug:
+            self.go_web_button = discord.ui.Button(
+                label="Apollo", style=discord.ButtonStyle.gray,
+                url=f"https://apollo.cafe/@{cosmo_user}/list/{list_slug}"
+            )
+
+            self.add_item(self.go_web_button)
+
     def update_buttons(self):
         self.first_page_button.disabled = self.page == 1
         self.previous_page_button.disabled = self.page == 1
@@ -383,10 +402,10 @@ class CollectionView(discord.ui.View):
     async def update_message(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
-        start_after_num = (self.page - 1) * 9
+        start_after_num = (self.page - 1) * self.objekt_per_page
 
-        while len(self.objekt_search_result['objekts']) <= self.page * 9 and self.objekt_search_result['hasNext']:
-            print(len(self.objekt_search_result['objekts']), self.page * 9)
+        while len(self.objekt_search_result['objekts']) <= self.page * self.objekt_per_page and self.objekt_search_result['hasNext']:
+            print(len(self.objekt_search_result['objekts']), self.page * self.objekt_per_page)
             filters = {k: str(v) for k, v in self.options.items() if v is not None}
             filters['page']= self.objekt_search_result['nextStartAfter']
             print(filters)
@@ -396,7 +415,7 @@ class CollectionView(discord.ui.View):
             self.objekt_search_result['nextStartAfter'] = objekt_search_result_add.get('nextStartAfter')
 
         img = await collection_img.create_image(
-            self.options, self.objekt_search_result, start_after_num, (self.page, self.total_page)
+            self.options, self.objekt_search_result, start_after_num, (self.page, self.total_page), self.objekt_per_page, title=self.title_name if self.title_name else None
         )
         self.update_buttons()
         await interaction.edit_original_response(
@@ -471,7 +490,8 @@ async def list_auto(action: discord.Interaction, current: str) -> typing.List[ap
     season=season,
     class_=class_,
     member=triples_member,
-    artist=artist
+    artist=artist,
+    array=collection_array
 )
 @app_commands.autocomplete(list=list_auto)
 @discord.app_commands.describe(list="select my apollo's list")
@@ -485,6 +505,7 @@ async def apollo_list(
     member: Optional[str],
     class_: Optional[str],
     season: Optional[str],
+    array: Optional[int]
 ):
     print(f"user!!!! : {action.user.name}")
     if action.user.id not in register:
@@ -511,6 +532,12 @@ async def apollo_list(
         return
 
     await action.response.defer(ephemeral=False)
+
+    if array:
+        objekt_per_page = array
+    else:
+        objekt_per_page = 9
+
 
     # User and list info
     cosmo_address = register[action.user.id]['cosmo_address']
@@ -539,21 +566,22 @@ async def apollo_list(
 
     # Fetch search results and total pages
     page = 1
-    objekt_search_result = await apollo.objekt_list_search_all(cosmo_address, list_slug, filters)
-    total_page = math.ceil(objekt_search_result['total'] / 9)
+    objekt_search_result = await apollo.objekt_list_search(cosmo_address, list_slug, filters)
+    total_page = math.ceil(objekt_search_result['total'] / objekt_per_page)
 
     # Generate initial image
-    img = await collection_img.create_image(options, objekt_search_result, 0, (page, total_page), title='apollo')
+    img = await collection_img.create_image(options, objekt_search_result, 0, (page, total_page), objekt_per_page, title='apollo')
 
+    title_name = 'Apollo'
     # Create and send the message with pagination view
-    view = ApolloListView(options, objekt_search_result, cosmo_user, list_slug, page, total_page)
+    view = CollectionView(options, objekt_search_result, cosmo_user, page, total_page, objekt_per_page, title_name, list_slug)
     await action.followup.send(
         files=[discord.File(fp=img, filename=f"{cosmo_user}.webp")], view=view
     )
 
-
+"""
 class ApolloListView(discord.ui.View):
-    def __init__(self, options, objekt_search_result, cosmo_user, list_slug, page, total_page):
+    def __init__(self, options, objekt_search_result, cosmo_user, list_slug, page, total_page, objekt_per_page: Optional[int]):
         super().__init__(timeout=None)
         self.options = options
         self.objekt_search_result = objekt_search_result
@@ -561,6 +589,7 @@ class ApolloListView(discord.ui.View):
         self.list_slug = list_slug
         self.page = page
         self.total_page = total_page
+        self.objekt_per_page = objekt_per_page
 
         # Buttons
         self.first_page_button = discord.ui.Button(label="|<", style=discord.ButtonStyle.blurple)
@@ -595,13 +624,14 @@ class ApolloListView(discord.ui.View):
 
     async def update_message(self, interaction: discord.Interaction):
         start_after_num = (self.page - 1) * 9
-        img = await collection_img.apollo(
-            self.options, self.objekt_search_result, start_after_num, (self.page, self.total_page)
+        img = await collection_img.create_image(
+            self.options, self.objekt_search_result, start_after_num, (self.page, self.total_page), self.objekt_per_page, title='Apollo'
         )
         self.update_buttons()
         await interaction.message.edit(
             attachments=[discord.File(fp=img, filename=f"{self.cosmo_user}.webp")], view=self
         )
+
         await interaction.response.defer()
 
     async def first_page_callback(self, interaction: discord.Interaction):
@@ -620,7 +650,8 @@ class ApolloListView(discord.ui.View):
 
     async def last_page_callback(self, interaction: discord.Interaction):
         self.page = self.total_page
-        await self.update_message(interaction)
+        await self.update_message(interaction)"""
+
 """
 def extract_numbers(text):
     pattern = r"\{([^}]+)\}"
@@ -1170,8 +1201,8 @@ class nebulaView(discord.ui.View):
 
         # Fetch search results and total pages
         objekt_search_result = await apollo.objekt_search(register[interaction.user.id]['cosmo_address'], filters)
-        total_page = math.ceil(objekt_search_result['total'] / 9)
-        img = await collection_img.create_image(options, objekt_search_result, 0 ,(1, total_page), 'choose')
+        total_page = math.ceil(objekt_search_result['total'] / 18)
+        img = await collection_img.create_image(options, objekt_search_result, 0 ,(1, total_page), 18, 'choose')
         page = 1
         view = title_objekt_view(interaction, objekt_search_result, page)
         await interaction.followup.send(files=[discord.File(fp=img, filename=f"choose.webp")], ephemeral=True, view=view)
@@ -1249,13 +1280,13 @@ class title_objekt_view(discord.ui.View):
         super().__init__(timeout=None)
         self.action = action
         self.objekt_search_result = objekt_search_result
-        collections = objekt_search_result['objekts'][0:9]
+        collections = objekt_search_result['objekts'][0:18]
 
 
         self.collections = objekt_search_result['objekts']
         self.objekt_search_result = objekt_search_result
         self.page = page
-        self.total_page = math.ceil(objekt_search_result['total'] / 9)
+        self.total_page = math.ceil(objekt_search_result['total'] / 18)
 
 
         # Uis
@@ -1310,7 +1341,7 @@ class title_objekt_view(discord.ui.View):
         self.previous_page_button.disabled = self.page == 1
         self.next_page_button.disabled = self.page == self.total_page
         self.last_page_button.disabled = self.page == self.total_page
-        collections = self.collections[9*(self.page-1):9*(self.page)]
+        collections = self.collections[18*(self.page-1):18*(self.page)]
 
         # Clear and re-add select options
         self.select.options.clear()  # Clear previous options
@@ -1322,7 +1353,7 @@ class title_objekt_view(discord.ui.View):
 
 
     async def update_message(self, interaction: discord.Interaction):
-        start_after_num = (self.page - 1) * 9
+        start_after_num = (self.page - 1) * 18
         options = {
             "artist": None,
             "season": None,
@@ -1336,7 +1367,7 @@ class title_objekt_view(discord.ui.View):
             'list_slug': None,
         }
         img = await collection_img.create_image(
-            options, self.objekt_search_result, start_after_num, (self.page, self.total_page), 'choose'
+            options, self.objekt_search_result, start_after_num, (self.page, self.total_page), 18, 'choose'
         )
         self.update_buttons()
 

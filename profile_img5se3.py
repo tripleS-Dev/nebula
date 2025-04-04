@@ -1,5 +1,7 @@
 import asyncio
 import time
+
+import cosmo
 from config import season_color
 from io import BytesIO
 from typing import Optional, Union
@@ -12,7 +14,7 @@ import concurrent.futures
 
 import alchemy
 import calendar_panel
-from config import season, season_names
+from config import season, season_names, season_percent_value
 from text_assist import text_draw_default,  text_draw_center, text_draw_right
 from datetime import datetime, timedelta, timezone
 
@@ -23,7 +25,9 @@ import circle
 #import nova
 #import gravity_panel3
 
-
+def getRecentImageUrl(objekt_data):
+    frontImage_url = objekt_data['objekts'][0]['frontImage'].rsplit('/', 1)[0] + '/2x'
+    return frontImage_url
 
 member_color = {
     "seoyeon": (34, 174, 255),
@@ -84,10 +88,34 @@ async def main(options, forDebug = False):
     discord_nickname = options['discord_nickname']
     title_objekt_tokenId = options.get('title_objekt_tokenId', None)
 
+
+    """# Define data fetching functions
+    async def fetch_objekt_special():
+        try:
+            return await apollo.objekt_search_all(cosmo_address, {'sort': 'oldest', 'artist': artist, 'class': 'Special'})
+        except Exception as e:
+            print(f"Error fetching objekt data: {e}")
+            return None"""
+
     # Define data fetching functions
     async def fetch_objekt_data():
         try:
-            return await apollo.objekt_search_all(cosmo_address, {'sort': 'oldest', 'artist': artist})
+            return await apollo.objekt_search(cosmo_address,{'sort': 'newest', 'artist': artist})
+        except Exception as e:
+            print(f"Error fetching objekt data: {e}")
+            return None
+
+    # Define data fetching functions
+    async def fetch_first_objekt():
+        try:
+            return await apollo.objekt_search(cosmo_address, {'sort': 'oldest', 'artist': artist})
+        except Exception as e:
+            print(f"Error fetch_first_objekt: {e}")
+            return None
+
+    async def fetch_user_stats():
+        try:
+            return await apollo.stats(cosmo_address)
         except Exception as e:
             print(f"Error fetching objekt data: {e}")
             return None
@@ -127,12 +155,12 @@ async def main(options, forDebug = False):
             print(f"Error fetching member rank: {e}")
             return {}
 
-    async def fetch_most_common_season(objekt_data):
+    """async def fetch_most_common_season(objekt_data):
         try:
             return await get_most_common_season(objekt_data)
         except Exception as e:
             print(f"Error fetching most common season: {e}")
-            return ""
+            return """
 
     async def fetch_classes(objekt_data):
         try:
@@ -148,18 +176,50 @@ async def main(options, forDebug = False):
             print(f"Error fetching classes: {e}")
             return {}"""
 
-    # Fetch objekt_data first since other tasks depend on it
-    objekt_data = await fetch_objekt_data()
-    if not objekt_data:
-        print("Failed to fetch objekt data.")
+
+
+    """# Fetch objekt_data first since other tasks depend on it
+    IstokenOwner = await alchemy.ownerByTokenId(artist, title_objekt_tokenId, cosmo_address)
+    user_stats = await fetch_user_stats()
+    objekt_special_data = await fetch_objekt_special()
+    objekt_data = await fetch_objekt_data()"""
+
+    data_tasks1 = [
+        alchemy.ownerByTokenId(artist, title_objekt_tokenId, cosmo_address),
+        fetch_user_stats(),
+        #fetch_objekt_special(),
+        fetch_objekt_data(),
+        fetch_first_objekt()
+    ]
+
+
+    #IstokenOwner, user_stats, objekt_special_data, objekt_data = await asyncio.gather(*data_tasks1)
+    IstokenOwner, user_stats, objekt_data, first_objekt = await asyncio.gather(*data_tasks1)
+
+
+
+    if title_objekt_tokenId:
+        if IstokenOwner:
+            data = await cosmo.getInfoBytokenId(title_objekt_tokenId)
+            frontImage_url = data['objekt']['frontImage'].rsplit('/', 1)[0] + '/2x'
+            print('Its yours')
+        else:
+            frontImage_url = getRecentImageUrl(objekt_data)
+            print('Its not yours')
+    else:
+        frontImage_url = getRecentImageUrl(objekt_data)
+
+
+    if not user_stats:
+        print("Failed to fetch user_stats.")
         return None
 
-    objekts_special = []
-    for objekt in objekt_data['objekts']:
+    """objekts_special = []
+    for objekt in objekt_special_data['objekts']:
         if objekt['class'] == 'Special':
-            objekts_special.append(objekt)
+            objekts_special.append(objekt)"""
 
-    async def download_main_image():
+    """async def download_main_image():
         try:
             index = next(
                 (i for i, obj in enumerate(objekt_data['objekts']) if obj['tokenId'] == title_objekt_tokenId),
@@ -174,7 +234,7 @@ async def main(options, forDebug = False):
             return images[0] if images else None
         except Exception as e:
             print(f"Error downloading main image: {e}")
-            return None
+            return None"""
 
 
 
@@ -184,15 +244,20 @@ async def main(options, forDebug = False):
         #fetch_gravity_info(),
         #fetch_user_votes(),
         fetch_como_count(),
-        fetch_member_rank(objekt_data),
-        fetch_most_common_season(objekt_data),
+        #fetch_member_rank(objekt_data),
+        #fetch_most_common_season(objekt_data),
         fetch_classes(objekt_data),
         #fetch_comos(options['cosmo_address'], options['artist']),
-        download_main_image()
+        download_image_one(frontImage_url),
+        apollo.como(cosmo_address, artist),
+        alchemy.get_total_tokens_sent(artist, cosmo_address)
     ]
 
     #trade_data, gravity_info, user_votes, como_count, member_rank, most_common_season, classes, como_data, main_img = await asyncio.gather(*data_tasks)
-    trade_data, como_count, member_rank, most_common_season, classes, main_img = await asyncio.gather(*data_tasks)
+    #trade_data, como_count, member_rank, most_common_season, classes, main_img = await asyncio.gather(*data_tasks)
+    trade_data, como_count, classes, main_img, como_data, como_sent = await asyncio.gather(*data_tasks)
+
+
 
     missing_data = []
 
@@ -207,7 +272,7 @@ async def main(options, forDebug = False):
         print(f"Essential data missing: {', '.join(missing_data)}")
 
 
-    cosmo_date = objekt_data['objekts'][0]['receivedAt'].split('T')[0]
+    cosmo_date = first_objekt['objekts'][0]['receivedAt'].split('T')[0]
 
     # Draw texts
     size = text_draw_default(draw, (434, 29), 'HalvarBreit-XBd.ttf', 45, cosmo_nickname or 'Error')
@@ -234,7 +299,15 @@ async def main(options, forDebug = False):
     # Define image creation functions
     def create_circle_img():
         try:
-            season_percent_value = season_percent(objekt_data)
+            #season_percent_value = season_percent(objekt_data)
+
+            for i in user_stats:
+                if not i['artistName'] == artist:
+                    pass
+                else:
+                    for season in i['seasons']:
+                        season_percent_value[season['name']] = season['count']
+
             return circle.generate(season_percent_value)
         except Exception as e:
             print(f"Error creating circle image: {e}")
@@ -306,7 +379,7 @@ async def main(options, forDebug = False):
     def create_como_calender_panel():
         try:
 
-            #print(objekts)
+            """#print(objekts)
             # objekts의 minted 추출 및 날짜 변환 후 출력
             #objekts = objekt_data['objekts']
             #print("Objekts Minted Dates:")
@@ -325,8 +398,9 @@ async def main(options, forDebug = False):
                 if number in counts:
                     counts[number] += 1
                 else:
-                    counts[number] = 1
-            return calendar_panel.generate_calendar_image(counts)
+                    counts[number] = 1"""
+
+            return calendar_panel.generate_calendar_image(como_data)
 
         except Exception as e:
             print(f"Error creating COMO info panel: {e}")
@@ -358,6 +432,8 @@ async def main(options, forDebug = False):
         base.paste(circle_img, (-25, 266), circle_img)
 
     if main_img:
+        #print(main_img)
+        #main_img.show()
         base.paste(main_img, (669, 172), main_img.convert('RGBA'))
 
     if activity_img:
@@ -372,9 +448,44 @@ async def main(options, forDebug = False):
     #create_como_info_panel()
 
     # Draw additional texts and shapes
-    if most_common_season:
-        season_text = most_common_season[:-2]
-        text_draw_center(draw, (162, 400), 'inter.ttf', 32, season_text, txt_color=char_to_num(season_text[0]), variation='Black')
+    season_text = max(season_percent_value, key=season_percent_value.get)[:-2]
+    text_draw_center(draw, (162, 400), 'inter.ttf', 32, season_text, txt_color=char_to_num(season_text[0]), variation='Black')
+
+    """member_rank = {
+        "first_percent": 85.7,
+        "second_percent": 65.4,
+        "third_percent": 45.0,
+        "first": "seoyeon",
+        "second": "hyerin",
+        "third": "jiwoo"
+    }"""
+
+
+
+
+    for i in user_stats:
+        if not i['artistName'] == artist:
+            pass
+        else:
+            # 1) 전체 count 합산
+            total_count = sum(item['count'] for item in i['members'])
+
+            # 2) count 기준 내림차순 정렬
+            sorted_data = sorted(i['members'], key=lambda x: x['count'], reverse=True)
+
+            # 3) 상위 3명 추출
+            top3 = sorted_data[:3]
+
+            # 4) member_rank 생성 (퍼센트는 필요에 맞게 반올림하거나 소수점 자릿수를 조정)
+            member_rank = {
+                "first_percent": round(top3[0]['count'] / total_count * 100, 1) if len(top3) >= 1 else '',
+                "second_percent": round(top3[1]['count'] / total_count * 100, 1) if len(top3) >= 2 else '',
+                "third_percent": round(top3[2]['count'] / total_count * 100, 1) if len(top3) >= 3 else '',
+                "first": top3[0]['name'] if len(top3) >= 1 else '',
+                "second": top3[1]['name'] if len(top3) >= 2 else '',
+                "third": top3[2]['name'] if len(top3) >= 3 else ''
+            }
+
 
     if member_rank:
         entries = [
@@ -387,14 +498,15 @@ async def main(options, forDebug = False):
             percent_text = str(member_rank.get(entry['percent_key'], '0')).split('.')[0]
             text_draw_center(draw, entry['percent_pos'], 'inter.ttf', 20, percent_text, txt_color='#bfc0c1', variation='Black')
 
-            rank_member = member_rank.get(entry['rank_key'], 'None')
-            if rank_member != 'None':
+            rank_member = member_rank.get(entry['rank_key'], None)
+            if rank_member != '':
                 txt_color = member_color.get(rank_member.lower(), (0, 0, 0))
                 text_draw_center(draw, entry['rank_pos'], 'HalvarBreit-XBd.ttf', 40 if len(rank_member) <= 6 else 44 - len(rank_member), rank_member, txt_color=txt_color)
 
         for i, rank_label in enumerate(['first', 'second', 'third']):
             x_offset = 58 * i
-            draw_member(rank_label, x_offset, base, member_rank, draw)
+            if rank_member != '':
+                draw_member(rank_label, x_offset, base, member_rank, draw)
 
     # Draw COMO count and icon
     x, *_ = text_draw_default(draw, (1344, 172), 'HalvarBreit-XBd.ttf', 40, str(como_count), (23, 8, 32))
@@ -410,8 +522,12 @@ async def main(options, forDebug = False):
     como_icon = Image.open(f"res_profile/como_{artist.lower()}_icon.png")
     base.paste(como_icon, (1281, 182), como_icon)
 
-    x, *_ = text_draw_default(draw, (1649, 263-11), 'HalvarBreit-Bd.ttf', 40, str(len(objekts_special)), (231, 221, 255))
+    x, *_ = text_draw_default(draw, (1649, 263-11), 'HalvarBreit-Bd.ttf', 40, str(sum(como_data.values())), (231, 221, 255))
     base.paste(month, (1649+x-2, 274), month)
+
+    text_draw_default(draw, (1396, 246), 'HalvarBreit-Bd-space.ttf', 40, str(como_sent), (231, 221, 255))
+    text_draw_default(draw, (1396, 276), 'HalvarBreit-Bd-space.ttf', 40, str(int(como_count)+como_sent), (231, 221, 255))
+
 
 
     end = time.time()
@@ -442,13 +558,21 @@ async def download_images(image_urls):
         tasks = [download_image(session, url) for url in image_urls]
         return await asyncio.gather(*tasks)
 
+async def download_image_one(url):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:
+                data = await response.read()
+                return Image.open(BytesIO(data))
+            else:
+                raise Exception(f"Failed to download image: {url}")
 
 def char_to_num(c):
     colors = season_color[ord(c.upper()) - ord('A')]  # 색상 설정
 
     return colors
 
-def season_percent(data):
+"""def season_percent(data):
     # Count the occurrences of each season
     season_counts = Counter([objekt['season'] for objekt in data['objekts']])
     # 모든 시즌 리스트 정의
@@ -460,13 +584,13 @@ def season_percent(data):
             season_counts[season] = 0
 
     print(season_counts)
-    """# Sort the seasons based on the first letter in reverse order
+    # Sort the seasons based on the first letter in reverse order
     sorted_seasons = sorted(season_counts.keys(), key=lambda s: s[0], reverse=True)
     # Get the counts in that order
     counts_in_order = [season_counts[season] for season in sorted_seasons]
     print(counts_in_order)
-    print(len(counts_in_order))"""
-    return season_counts
+    print(len(counts_in_order))
+    return season_counts"""
 
 
 async def member_percent(data):
@@ -570,7 +694,7 @@ options = {
     'discord_nickname': 'hj_sss',
     'cosmo_address': '0x9526E51ee3D9bA02Ef674eB1E41FB24Dc2165380',
     'artist': 'tripleS',
-    'title_objekt_tokenId': None
+    'title_objekt_tokenId': 1557328
 }
 
 

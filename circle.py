@@ -6,7 +6,7 @@ from config import season
 matplotlib.use('Agg')
 from PIL import Image
 from io import BytesIO
-from config import season_color_dict
+from config import season_color
 
 def generate_colors(input_dict, season_color_dict):
     colors = []
@@ -20,23 +20,21 @@ def generate_colors(input_dict, season_color_dict):
         colors.append(color_code)
     return colors
 
+size = {
+    'Atom01': '0',
+    'Binary01': '2',
+    'Cream01': '3',
+    'Divine01': '4',
+    'Ever01': '5',
+}
 
-def generate(sizes: dict):
-    # 키의 첫 글자 기준 정렬 (키 전체 정렬도 첫 글자 기준이지만, 명시적으로 첫 글자 기준으로 정렬)
-    sizes = dict(sorted(sizes.items(), key=lambda item: item[0][0]))
-    print(f"!!!!!!!! {sizes}")
-    #colors = ['#f6dc4a', '#81fb4c', '#e9867c', '#a126f5'][::-1]  # 색상 설정
-    #colors = season_color[0:len(sizes)][::-1]  # 색상 설정
+def generate(sizes):
 
-    colors = []
-    colors = generate_colors(sizes, season_color_dict)
-
-    print(colors)
     # 도넛형 그래프 생성
     fig, ax = plt.subplots()
     wedges, texts = ax.pie(
         list(sizes.values())[::-1],
-        colors=colors[::-1],
+        colors=season_color[::-1],
         wedgeprops=dict(width=0.24),
         startangle=90
     )
@@ -48,11 +46,11 @@ def generate(sizes: dict):
 
     # Pillow로 이미지 열기
     image = Image.open(buffer)
-    image.show()
+    #image.show()
     resized_image = image.resize((364, 273), Image.Resampling.LANCZOS)
 
 
     return resized_image
 
 if __name__ == "__main__":
-    generate({'Divine01': 121, 'Cream01': 113, 'Ever01': 87, 'Binary01': 45, 'Atom01': 6})
+    generate(size)

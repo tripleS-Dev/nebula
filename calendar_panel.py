@@ -4,14 +4,11 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from text_assist import *
 
+from config import month_end, month_start
 
 
-# Month information
-month_end = [31,28,31,30,31,30,31,31,30,31,30,31]
-month_start = [4,7,7,3,5,1,3,6,2,    3,6,1] #2025, 2024
 
 
-data_count = {29: 5, 11: 1, 23: 1, 7: 1, 5: 1, 6: 2, 12: 1, 16: 3, 26: 3, 27: 3, 15: 2, 17: 1, 19: 1, 20: 5, 8: 1, 9: 2, 22: 3, 25: 2, 3: 1, 30: 2, 1: 1}
 
 colors = {
     0: ['#22262B', '#E7DDFF'], #꼬모수: [배경색, 글자색]
@@ -80,4 +77,7 @@ def generate_calendar_image(data_count):
     return base
 
 if __name__ == "__main__":
+    #data_count = {29: 5, 11: 1, 23: 1, 7: 1, 5: 1, 6: 2, 12: 1, 16: 3, 26: 3, 27: 3, 15: 2, 17: 1, 19: 1, 20: 5, 8: 1, 9: 2, 22: 3, 25: 2, 3: 1, 30: 2, 1: 1}
+    data_count = {1: 1, 3: 1, 4: 1, 7: 1, 9: 1, 11: 1, 12: 2, 13: 1, 17: 1, 19: 1, 20: 1, 21: 1, 23: 2, 24: 2, 26: 2, 29: 2, 30: 2}
+
     generate_calendar_image(data_count).show()

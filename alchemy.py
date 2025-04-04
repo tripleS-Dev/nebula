@@ -5,10 +5,7 @@ import json
 import asyncio
 import aiohttp
 
-como_contract = {
-    'triples': "0x58AeABfE2D9780c1bFcB713Bf5598261b15dB6e5",
-    'artms': '0x8254D8D2903B20187cBC4Dd833d49cECc219F32E',
-}
+from config import como_contract, objekt_contract, gravity_address
 
 alchemy_api = os.getenv('alchemy_api')
 
@@ -49,17 +46,11 @@ async def get_como(address, artist):
 
 from decimal import Decimal
 
-como_contract = {
-    'triples': "0x58AeABfE2D9780c1bFcB713Bf5598261b15dB6e5",
-    'artms': '0x8254D8D2903B20187cBC4Dd833d49cECc219F32E',
-}
 
-
-
-async def get_total_tokens_sent(contract_name, from_address, to_address):
-    contract_address = como_contract[contract_name].lower()
+async def get_total_tokens_sent(artist: str, from_address: str):
+    contract_address = como_contract[artist.lower()].lower()
     from_address = from_address.lower()
-    to_address = to_address.lower()
+    to_address = gravity_address[artist.lower()].lower()
 
     headers = {
         "accept": "application/json",
@@ -105,9 +96,52 @@ async def get_total_tokens_sent(contract_name, from_address, to_address):
 
 
 
+async def ownerByTokenId(artist: str, tokenId, address: str):
+    if not tokenId:
+        return False
+
+    urls = url + "/getOwnersForToken"
+
+
+    params = {
+        "contractAddress": objekt_contract[artist.lower()],
+        "tokenId": tokenId
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(urls, params=params) as response:
+            if response.status == 200:
+                data = await response.json()
+                print(f"\nToken ID {tokenId}의 소유자 목록:")
+                for owner in data.get("owners", []):
+                    print(owner)
+                    if str(owner).lower() == address.lower():
+                        return True
+            else:
+                print(f"오류 발생: {response.status} - {await response.text()}")
+                return False
+    return False
+
+async def get_nft_metadata(artist: str, tokenId):
+    urls = url + "/getNFTMetadata"
+
+    params = {
+        "contractAddress": objekt_contract[artist.lower()],
+        "tokenId": tokenId
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(urls, params=params) as response:
+            if response.status == 200:
+                data = await response.json()
+                print(f"\nToken ID {tokenId}의 정보:")
+                print(data)
+            else:
+                print(f"오류 발생: {response.status} - {await response.text()}")
+
 
 if __name__ == "__main__":
-    # 사용 예시
+    """# 사용 예시
     from_address = "0x9526E51ee3D9bA02Ef674eB1E41FB24Dc2165380"
     to_address = "0xc3E5ad11aE2F00c740E74B81f134426A3331D950"
 
@@ -122,7 +156,11 @@ if __name__ == "__main__":
 
 
     a = asyncio.run(get_como('0xF5570fAa026789fC128A9bBD01679c013F7b012a', 'tripleS'))
-    print(a)
+    print(a)"""
+
+
+    a = asyncio.run(get_nft_metadata('tripleS', 8350493))
+
 
 
 

@@ -19,7 +19,7 @@ def activity(data, my_address, artist):
     current_nickname = None
     previous_nickname = None
     one = False
-    print(current_nickname, previous_nickname)
+    #print(current_nickname, previous_nickname)
     for i in range(len(data)):
 
         if not data[i]['collection']['artist'].lower() == artist.lower():
@@ -34,14 +34,14 @@ def activity(data, my_address, artist):
         if one == False:
             previous_nickname = current_nickname
             one = True
-        print(current_nickname, previous_nickname)
+        #print(current_nickname, previous_nickname)
 
 
 
 
         # 닉네임이 변경되었는지 확인
         if current_nickname != previous_nickname:
-            print('bar')
+            #print('bar')
             # 바 이미지 붙여넣기
             base.paste(bar, (-8, y_pos), bar)
 

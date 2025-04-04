@@ -1,3 +1,5 @@
+import asyncio
+
 import aiohttp
 
 
@@ -52,6 +54,21 @@ async def objekt_search_all(address, filters):
 
     all_objekts['total'] = len(all_objekts['objekts'])
     return all_objekts
+
+
+
+async def getInfoBytokenId(tokenId):
+    url = f'https://api.cosmo.fans/objekt/v1/token/{tokenId}'
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:  # Request successful
+                result = await response.json()
+                return result
+            else:  # Request failed
+                print(
+                    f"Failed request: Status {response.status}, Response: {await response.text()}")  # Debug: Print the error
+                return None
 # Example options and locale
 #filters = {"artist": None,"season": None,"sort": "newest","class": None,"member": None,"gridable": None,"transferable": None}
 
@@ -60,3 +77,8 @@ async def objekt_search_all(address, filters):
 #print(r['objekts'][0:9]['thumbnailImage'])
 #image_names = [objekt['collectionNo'] for objekt in objekts['objekts'][0:61]]
 #print(image_names)
+
+
+if __name__ == '__main__':
+    a = asyncio.run(getInfoBytokenId(1557328))
+    print(a)
