@@ -58,7 +58,7 @@ async def create_image(options, objekt_search_result, start_after, page, objekt_
 
     # 이미지 저장
     buffered_image = BytesIO()
-    img.save(buffered_image, format="webp", subsampling=0, quality=100)
+    img.save(buffered_image, format="webp", subsampling=10, quality=90)
     buffered_image.seek(0)
 
     total_end = time.time()
@@ -141,8 +141,20 @@ def draw_page_number(draw, page, img_size):
     text_height = txt_bbox[3] - txt_bbox[1]
     draw.text((img_size[0] - 48 - text_width, img_size[1] - 43 - text_height), txt, (255, 255, 255), font=font_page)
 
+import os
+import re
+
+
 # Asynchronously download an image from a URL
 async def download_image(session, url):
+    # 파일이 이미 존재하는 경우 건너뜁니다.
+    pattern = r'/([^/]+)/[^/]+$'
+    match = re.search(pattern, url)
+    if match:
+        if os.path.exists(f"./image_resize/{match.group(1)}.png"):
+            print(f"'{match.group(1)}' 파일이 ./image_resize 디렉토리에 존재합니다.")
+            return Image.open(f"./image_resize/{match.group(1)}.png")
+
     async with session.get(url) as response:
         if response.status == 200:
             data = await response.read()
@@ -201,6 +213,10 @@ async def process_images(objekt_search_result, start_after, objekt_per_page, tit
 
     # --- 비동기 리사이징 처리 ---
     async def resize_image(image):
+        # 이미지 크기가 이미 (314, 486)인 경우, 건너뛰고 그대로 반환
+        if image.size == (314, 486):
+            return image
+        # 그렇지 않은 경우, 비동기로 리사이징 처리
         return await asyncio.to_thread(image.resize, (314, 486), Image.Resampling.LANCZOS)
 
     start_resize = time.time()
