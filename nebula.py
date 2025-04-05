@@ -1353,6 +1353,8 @@ class title_objekt_view(discord.ui.View):
 
 
     async def update_message(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+
         start_after_num = (self.page - 1) * 18
         options = {
             "artist": None,
@@ -1372,7 +1374,7 @@ class title_objekt_view(discord.ui.View):
         self.update_buttons()
 
 
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             attachments=[discord.File(fp=img, filename=f"choose.webp")], view=self
         )
 
