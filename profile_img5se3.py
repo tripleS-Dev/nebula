@@ -69,6 +69,9 @@ como_receiver = {
 async def main(options, forDebug = False):
     # Load base images
     start = time.time()
+
+    season_percent_value_r = season_percent_value.copy()
+
     base = Image.open('resource/base_profile_temp2.png')
     month = Image.open('./res_profile/month.png')
 
@@ -301,14 +304,15 @@ async def main(options, forDebug = False):
         try:
             #season_percent_value = season_percent(objekt_data)
 
+
             for i in user_stats:
                 if not i['artistName'] == artist:
                     pass
                 else:
                     for season in i['seasons']:
-                        season_percent_value[season['name']] = season['count']
+                        season_percent_value_r[season['name']] = season['count']
 
-            return circle.generate(season_percent_value)
+            return circle.generate(season_percent_value_r)
         except Exception as e:
             print(f"Error creating circle image: {e}")
             return None
@@ -448,8 +452,9 @@ async def main(options, forDebug = False):
     #create_como_info_panel()
 
     # Draw additional texts and shapes
-    season_text = max(season_percent_value, key=season_percent_value.get)[:-2]
-    text_draw_center(draw, (162, 400), 'inter.ttf', 32, season_text, txt_color=char_to_num(season_text[0]), variation='Black')
+    if season_percent_value_r:
+        season_text = max(season_percent_value_r, key=season_percent_value_r.get)[:-2]
+        text_draw_center(draw, (162, 400), 'inter.ttf', 32, season_text, txt_color=char_to_num(season_text[0]), variation='Black')
 
     """member_rank = {
         "first_percent": 85.7,
@@ -692,7 +697,7 @@ def convert_timestamp_to_date(timestamp_str):
 options = {
     'cosmo_nickname': 'ILoveYouyeon',
     'discord_nickname': 'hj_sss',
-    'cosmo_address': '0x9526E51ee3D9bA02Ef674eB1E41FB24Dc2165380',
+    'cosmo_address': '0xAF1B00a0AEE058c1209637fc8fea4f5C8a2B64e2',
     'artist': 'tripleS',
     'title_objekt_tokenId': 1557328
 }
