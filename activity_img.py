@@ -21,7 +21,7 @@ async def main(cosmo_user, cosmo_address, discord_nickname, artist_name):
 
     # Save and return the final image
     buffered_image = BytesIO()
-    base.save(buffered_image, format="jpeg", subsampling=0, quality=100)
+    base.convert('RGB').save(buffered_image, format="jpeg", subsampling=0, quality=100)
     buffered_image.seek(0)
     return buffered_image
 
