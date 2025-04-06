@@ -56,9 +56,14 @@ async def create_image(options, objekt_search_result, start_after, page, objekt_
         img.paste(transferable_image, (48, 1849), transferable_image)
     print(f"Drawing bottom info took {time.time() - start_bottom:.2f} seconds")
 
+    total_end = time.time()
+    print(f"Total create_image time before: {total_end - total_start:.2f} seconds")
+
     # 이미지 저장
     buffered_image = BytesIO()
-    img.save(buffered_image, format="webp", subsampling=10, quality=90)
+    #img.save(buffered_image, format="webp", subsampling=10, quality=90)
+    img.convert('RGB').save(buffered_image, format="jpeg", subsampling=10, quality=90)
+    #img.save(buffered_image, format="png", optimize=False)
     buffered_image.seek(0)
 
     total_end = time.time()
