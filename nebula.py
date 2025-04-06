@@ -8,6 +8,7 @@ from array import array
 from io import BytesIO
 
 from datetime import datetime, timedelta
+import time
 
 import aiohttp
 import discord
@@ -19,7 +20,7 @@ from typing import Optional, List
 import typing
 import pickle
 
-from matplotlib.pyplot import title
+#from matplotlib.pyplot import title
 
 import activity_img
 
@@ -345,7 +346,7 @@ async def get_user_info(action, cosmo_nickname, discord_user):
 
 
 class CollectionView(discord.ui.View):
-    def __init__(self, options, objekt_search_result, cosmo_user, page, total_page, objekt_per_page, title_name='Collect', list_slug=None):
+    def __init__(self, options, objekt_search_result, cosmo_user, page, total_page, objekt_per_page, title_name='Collect', list_slug=None, action=None):
         super().__init__(timeout=None)
         self.options = options
         self.objekt_search_result = objekt_search_result
@@ -356,6 +357,8 @@ class CollectionView(discord.ui.View):
         self.objekt_per_page = objekt_per_page
         self.title_name = title_name
 
+        collections = objekt_search_result['objekts'][0:18]
+        self.collections = objekt_search_result['objekts']
 
         # Buttons
         self.first_page_button = discord.ui.Button(
@@ -371,13 +374,28 @@ class CollectionView(discord.ui.View):
             label=">|", style=discord.ButtonStyle.blurple
         )
 
+        if title_name == 'choose':
+
+            # Uis
+            self.select = discord.ui.Select(placeholder=translate.translate('Select title Objekt', action.locale))
+            for i in range(len(collections)):
+                print(collections[i]['collectionId'])
+                self.select.add_option(label=f"{collections[i]['collectionId']}",
+                                       value=f"{collections[i]['tokenId']}|{str(collections[i]['objektNo']).zfill(5)}",
+                                       description=f"#{str(collections[i]['objektNo']).zfill(5)}")
+
+            self.select.callback = self.select_callback
+            self.add_item(self.select)
+
+
+
         # Set callbacks
         self.first_page_button.callback = self.first_page_callback
         self.previous_page_button.callback = self.previous_page_callback
         self.next_page_button.callback = self.next_page_callback
         self.last_page_button.callback = self.last_page_callback
 
-        self.update_buttons()
+        self.update_buttons(True if title_name == 'choose' else False)
 
         # Add buttons to the view
         self.add_item(self.first_page_button)
@@ -393,11 +411,29 @@ class CollectionView(discord.ui.View):
 
             self.add_item(self.go_web_button)
 
-    def update_buttons(self):
+
+    async def select_callback(self, action2: discord.Interaction):
+        global register
+        register[action2.user.id]['title_objekt_tokenId'] = self.select.values[0].split('|')[0]
+        save_register()
+        await action2.response.send_message(translate.translate('title OBJEKT now set!', action2.locale), ephemeral=True)
+
+    def update_buttons(self, title = None):
         self.first_page_button.disabled = self.page == 1
         self.previous_page_button.disabled = self.page == 1
         self.next_page_button.disabled = self.page == self.total_page
         self.last_page_button.disabled = self.page == self.total_page
+
+        if title:
+            collections = self.collections[18 * (self.page - 1):18 * (self.page)]
+
+            # Clear and re-add select options
+            self.select.options.clear()  # Clear previous options
+            for i in range(len(collections)):
+                print(collections[i]['collectionId'])
+                self.select.add_option(label=f"{collections[i]['collectionId']}",
+                                       value=f"{collections[i]['tokenId']}|{str(collections[i]['objektNo']).zfill(5)}",
+                                       description=f"#{str(collections[i]['objektNo']).zfill(5)}")
 
     async def update_message(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -417,9 +453,9 @@ class CollectionView(discord.ui.View):
         img = await collection_img.create_image(
             self.options, self.objekt_search_result, start_after_num, (self.page, self.total_page), self.objekt_per_page, title=self.title_name if self.title_name else None
         )
-        self.update_buttons()
+        self.update_buttons(True if self.title_name == 'choose' else False)
         await interaction.edit_original_response(
-            attachments=[discord.File(fp=img, filename=f"{self.cosmo_user}.webp")], view=self
+            attachments=[discord.File(fp=img, filename=f"{self.cosmo_user if self.cosmo_user else time.time()}.webp")], view=self
         )
 
     async def first_page_callback(self, interaction: discord.Interaction):
@@ -1190,7 +1226,7 @@ class nebulaView(discord.ui.View):
             "sort": 'newest',
             "class": None,
             "member": None,
-            'cosmo_address': None,
+            'cosmo_address': register[interaction.user.id]['cosmo_address'],
             'cosmo_nickname': None,
             'discord_nickname': None,
             'list_name': None,
@@ -1204,7 +1240,8 @@ class nebulaView(discord.ui.View):
         total_page = math.ceil(objekt_search_result['total'] / 18)
         img = await collection_img.create_image(options, objekt_search_result, 0 ,(1, total_page), 18, 'choose')
         page = 1
-        view = title_objekt_view(interaction, objekt_search_result, page)
+        #view = title_objekt_view(interaction, objekt_search_result, page)
+        view = CollectionView(options, objekt_search_result, '', page, total_page, 18, title_name='choose', action=interaction)
         await interaction.followup.send(files=[discord.File(fp=img, filename=f"choose.webp")], ephemeral=True, view=view)
 
 async def check_user_account(action: discord.Interaction):
@@ -1274,7 +1311,7 @@ class verify_induce_view(discord.ui.View):
     async def verify_button_callback(self, action: discord.Interaction):
         await perform_verify(action)
 
-
+"""
 class title_objekt_view(discord.ui.View):
     def __init__(self, action: discord.Interaction, objekt_search_result, page):
         super().__init__(timeout=None)
@@ -1394,7 +1431,7 @@ class title_objekt_view(discord.ui.View):
 
     async def last_page_callback(self, interaction: discord.Interaction):
         self.page = self.total_page
-        await self.update_message(interaction)
+        await self.update_message(interaction)"""
 
 
 @client.tree.command(name="activity", description="Show trade history")
