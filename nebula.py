@@ -272,7 +272,7 @@ async def collection(
         options, objekt_search_result, cosmo_user, page, total_page, objekt_per_page
     )
     await action.followup.send(
-        files=[discord.File(fp=img, filename=f"{cosmo_user}.webp")], view=view
+        files=[discord.File(fp=img, filename=f"{cosmo_user}.jpeg")], view=view
     )
 
 
@@ -455,7 +455,7 @@ class CollectionView(discord.ui.View):
         )
         self.update_buttons(True if self.title_name == 'choose' else False)
         await interaction.edit_original_response(
-            attachments=[discord.File(fp=img, filename=f"{self.cosmo_user if self.cosmo_user else time.time()}.webp")], view=self
+            attachments=[discord.File(fp=img, filename=f"{self.cosmo_user if self.cosmo_user else time.time()}.jpeg")], view=self
         )
 
     async def first_page_callback(self, interaction: discord.Interaction):
@@ -612,7 +612,7 @@ async def apollo_list(
     # Create and send the message with pagination view
     view = CollectionView(options, objekt_search_result, cosmo_user, page, total_page, objekt_per_page, title_name, list_slug)
     await action.followup.send(
-        files=[discord.File(fp=img, filename=f"{cosmo_user}.webp")], view=view
+        files=[discord.File(fp=img, filename=f"{cosmo_user}.jpeg")], view=view
     )
 
 """
@@ -1242,7 +1242,7 @@ class nebulaView(discord.ui.View):
         page = 1
         #view = title_objekt_view(interaction, objekt_search_result, page)
         view = CollectionView(options, objekt_search_result, '', page, total_page, 18, title_name='choose', action=interaction)
-        await interaction.followup.send(files=[discord.File(fp=img, filename=f"choose.webp")], ephemeral=True, view=view)
+        await interaction.followup.send(files=[discord.File(fp=img, filename=f"choose.jpeg")], ephemeral=True, view=view)
 
 async def check_user_account(action: discord.Interaction):
     await action.response.defer(ephemeral=True)
@@ -1474,7 +1474,7 @@ async def activity(
         await action.followup.send(img)
         return
 
-    await action.followup.send(files=[discord.File(fp=img, filename=f"activity.webp")])
+    await action.followup.send(files=[discord.File(fp=img, filename=f"activity.jpeg")])
 
 load_register()
 
