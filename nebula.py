@@ -269,7 +269,7 @@ async def collection(
 
     # Create and send the message with pagination view
     view = CollectionView(
-        options, objekt_search_result, cosmo_user, page, total_page, objekt_per_page
+        options, objekt_search_result, cosmo_user, page, total_page, objekt_per_page, info=True, action=action
     )
     await action.followup.send(
         files=[discord.File(fp=img, filename=f"{cosmo_user}.jpeg")], view=view
@@ -346,7 +346,7 @@ async def get_user_info(action, cosmo_nickname, discord_user):
 
 
 class CollectionView(discord.ui.View):
-    def __init__(self, options, objekt_search_result, cosmo_user, page, total_page, objekt_per_page, title_name='Collect', list_slug=None, action=None):
+    def __init__(self, options, objekt_search_result, cosmo_user, page, total_page, objekt_per_page, title_name='Collect', list_slug=None, action=None, info=None):
         super().__init__(timeout=None)
         self.options = options
         self.objekt_search_result = objekt_search_result
@@ -356,8 +356,9 @@ class CollectionView(discord.ui.View):
 
         self.objekt_per_page = objekt_per_page
         self.title_name = title_name
+        self.info = info
 
-        collections = objekt_search_result['objekts'][0:18]
+        collections = objekt_search_result['objekts'][0:objekt_per_page]
         self.collections = objekt_search_result['objekts']
 
         # Buttons
@@ -375,11 +376,10 @@ class CollectionView(discord.ui.View):
         )
 
         if title_name == 'choose':
-
             # Uis
             self.select = discord.ui.Select(placeholder=translate.translate('Select title Objekt', action.locale))
             for i in range(len(collections)):
-                print(collections[i]['collectionId'])
+                #print(collections[i]['collectionId'])
                 self.select.add_option(label=f"{collections[i]['collectionId']}",
                                        value=f"{collections[i]['tokenId']}|{str(collections[i]['objektNo']).zfill(5)}",
                                        description=f"#{str(collections[i]['objektNo']).zfill(5)}")
@@ -395,7 +395,6 @@ class CollectionView(discord.ui.View):
         self.next_page_button.callback = self.next_page_callback
         self.last_page_button.callback = self.last_page_callback
 
-        self.update_buttons(True if title_name == 'choose' else False)
 
         # Add buttons to the view
         self.add_item(self.first_page_button)
@@ -411,6 +410,26 @@ class CollectionView(discord.ui.View):
 
             self.add_item(self.go_web_button)
 
+        if info:
+            # Uis
+            self.select = discord.ui.Select(placeholder='Show objekt info')
+            for i in range(len(collections)):
+                #print(collections[i]['collectionId'])
+
+                slug = collections[i]['slug'].split('-')
+
+
+                self.select.add_option(label=f"{collections[i]['collectionId']}",
+                                       value=f"{slug[0]}|{slug[1]}|{slug[2][:-1]}|{slug[2][-1:]}",
+                                       description=f"Click to show objekt info")
+
+            self.select.callback = self.info_callback
+            self.add_item(self.select)
+
+        #self.update_buttons(title = (True if title_name == 'choose' else False), info=info)
+
+        self.first_page_button.disabled = self.page == 1
+        self.previous_page_button.disabled = self.page == 1
 
     async def select_callback(self, action2: discord.Interaction):
         global register
@@ -418,14 +437,31 @@ class CollectionView(discord.ui.View):
         save_register()
         await action2.response.send_message(translate.translate('title OBJEKT now set!', action2.locale), ephemeral=True)
 
-    def update_buttons(self, title = None):
+    async def info_callback(self, action2: discord.Interaction):
+        info = {
+            'season': self.select.values[0].split('|')[0],
+            'member': self.select.values[0].split('|')[1],
+            'number': self.select.values[0].split('|')[2],
+            'line': self.select.values[0].split('|')[3],
+        }
+
+        # Fetch Objekt details
+        result = await apollo.search_objekt_by_slug(info)
+
+
+        result_meta = await apollo.search_objekt_meta(info)
+        embed = await info_embed_Generater(result, result_meta, action2.locale, True)
+
+        await action2.response.send_message(embed=embed, ephemeral=True)
+
+    def update_buttons(self, title = None, info=None):
         self.first_page_button.disabled = self.page == 1
         self.previous_page_button.disabled = self.page == 1
         self.next_page_button.disabled = self.page == self.total_page
         self.last_page_button.disabled = self.page == self.total_page
 
         if title:
-            collections = self.collections[18 * (self.page - 1):18 * (self.page)]
+            collections = self.collections[self.objekt_per_page * (self.page - 1):self.objekt_per_page * (self.page)]
 
             # Clear and re-add select options
             self.select.options.clear()  # Clear previous options
@@ -434,6 +470,19 @@ class CollectionView(discord.ui.View):
                 self.select.add_option(label=f"{collections[i]['collectionId']}",
                                        value=f"{collections[i]['tokenId']}|{str(collections[i]['objektNo']).zfill(5)}",
                                        description=f"#{str(collections[i]['objektNo']).zfill(5)}")
+
+        if info:
+            collections = self.collections[self.objekt_per_page * (self.page - 1):self.objekt_per_page * (self.page)]
+            # Clear and re-add select options
+            self.select.options.clear()  # Clear previous options
+            for i in range(len(collections)):
+                #print(collections[i]['collectionId'])
+
+                slug = collections[i]['slug'].split('-')
+
+                self.select.add_option(label=f"{collections[i]['collectionId']}",
+                                       value=f"{slug[0]}|{slug[1]}|{slug[2][:-1]}|{slug[2][-1:]}",
+                                       description=f"Click to show objekt info")
 
     async def update_message(self, interaction: discord.Interaction):
         await interaction.response.defer()
@@ -453,7 +502,7 @@ class CollectionView(discord.ui.View):
         img = await collection_img.create_image(
             self.options, self.objekt_search_result, start_after_num, (self.page, self.total_page), self.objekt_per_page, title=self.title_name if self.title_name else None
         )
-        self.update_buttons(True if self.title_name == 'choose' else False)
+        self.update_buttons(title = (True if self.title_name == 'choose' else False), info=self.info)
         await interaction.edit_original_response(
             attachments=[discord.File(fp=img, filename=f"{self.cosmo_user if self.cosmo_user else time.time()}.jpeg")], view=self
         )
@@ -610,138 +659,10 @@ async def apollo_list(
 
     title_name = 'Apollo'
     # Create and send the message with pagination view
-    view = CollectionView(options, objekt_search_result, cosmo_user, page, total_page, objekt_per_page, title_name, list_slug)
+    view = CollectionView(options, objekt_search_result, cosmo_user, page, total_page, objekt_per_page, title_name, list_slug) # info 추가하면 요소 5 개 넘어가서 에러뜸 https://discordpy.readthedocs.io/en/stable/interactions/api.html?highlight=compo#actionrow
     await action.followup.send(
         files=[discord.File(fp=img, filename=f"{cosmo_user}.jpeg")], view=view
     )
-
-"""
-class ApolloListView(discord.ui.View):
-    def __init__(self, options, objekt_search_result, cosmo_user, list_slug, page, total_page, objekt_per_page: Optional[int]):
-        super().__init__(timeout=None)
-        self.options = options
-        self.objekt_search_result = objekt_search_result
-        self.cosmo_user = cosmo_user
-        self.list_slug = list_slug
-        self.page = page
-        self.total_page = total_page
-        self.objekt_per_page = objekt_per_page
-
-        # Buttons
-        self.first_page_button = discord.ui.Button(label="|<", style=discord.ButtonStyle.blurple)
-        self.previous_page_button = discord.ui.Button(label="<", style=discord.ButtonStyle.blurple)
-        self.next_page_button = discord.ui.Button(label=">", style=discord.ButtonStyle.blurple)
-        self.last_page_button = discord.ui.Button(label=">|", style=discord.ButtonStyle.blurple)
-        self.go_web_button = discord.ui.Button(
-            label="Apollo", style=discord.ButtonStyle.gray,
-            url=f"https://apollo.cafe/@{cosmo_user}/list/{list_slug}"
-        )
-
-        # Set callbacks
-        self.first_page_button.callback = self.first_page_callback
-        self.previous_page_button.callback = self.previous_page_callback
-        self.next_page_button.callback = self.next_page_callback
-        self.last_page_button.callback = self.last_page_callback
-
-        self.update_buttons()
-
-        # Add buttons to the view
-        self.add_item(self.first_page_button)
-        self.add_item(self.previous_page_button)
-        self.add_item(self.next_page_button)
-        self.add_item(self.last_page_button)
-        self.add_item(self.go_web_button)
-
-    def update_buttons(self):
-        self.first_page_button.disabled = self.page == 1
-        self.previous_page_button.disabled = self.page == 1
-        self.next_page_button.disabled = self.page == self.total_page
-        self.last_page_button.disabled = self.page == self.total_page
-
-    async def update_message(self, interaction: discord.Interaction):
-        start_after_num = (self.page - 1) * 9
-        img = await collection_img.create_image(
-            self.options, self.objekt_search_result, start_after_num, (self.page, self.total_page), self.objekt_per_page, title='Apollo'
-        )
-        self.update_buttons()
-        await interaction.message.edit(
-            attachments=[discord.File(fp=img, filename=f"{self.cosmo_user}.webp")], view=self
-        )
-
-        await interaction.response.defer()
-
-    async def first_page_callback(self, interaction: discord.Interaction):
-        self.page = 1
-        await self.update_message(interaction)
-
-    async def previous_page_callback(self, interaction: discord.Interaction):
-        if self.page > 1:
-            self.page -= 1
-            await self.update_message(interaction)
-
-    async def next_page_callback(self, interaction: discord.Interaction):
-        if self.page < self.total_page:
-            self.page += 1
-            await self.update_message(interaction)
-
-    async def last_page_callback(self, interaction: discord.Interaction):
-        self.page = self.total_page
-        await self.update_message(interaction)"""
-
-"""
-def extract_numbers(text):
-    pattern = r"\{([^}]+)\}"
-    match = re.search(pattern, text)
-    if match:
-        numbers = match.group(1).split(":")
-        member = get_english_name(numbers[0])
-        if member == None:
-            return None
-        info = {
-            'season': f'{numbers[1]}01',
-            'member': member,
-            'number': numbers[2],
-            'line': numbers[3],
-        }
-        return info
-    else:
-        return None
-name_dict = {
-    "S1": "Seoyeon",
-    "S2": "Hyerin",
-    "S3": "Jiwoo",
-    "S4": "Chaeyeon",
-    "S5": "Yooyeon",
-    "S6": "Soomin",
-    "S7": "Nakyoung",
-    "S8": "Yubin",
-    "S9": "Kaede",
-    "S10": "Dahyun",
-    "S11": "Kotone",
-    "S12": "Yeonji",
-    "S13": "Nien",
-    "S14": "Sohyun",
-    "S15": "Xinyu",
-    "S16": "Mayu",
-    "S17": "Lynn",
-    "S18": "JooBin",
-    "S19": "HaYeon",
-    "S20": "ShiOn",
-    "S21": "ChaeWon",
-    "S22": "Sullin",
-    "S23": "SeoAh",
-    "S24": "JiYeon",
-    "S25": 'Heejin',
-    "S26": 'HaSeul',
-    "S27": 'KimLip',
-    "S28": 'JinSoul',
-    "S29": 'Choerry',
-}
-
-def get_english_name(snum):
-    return name_dict.get(snum, None)
-
-""" #For ai obj_info. Not use now
 
 @client.tree.command(name="objekt_info", description="Show objekt info")
 @app_commands.choices(
@@ -795,6 +716,11 @@ async def objekt_info(action: discord.Interaction, member: str, season: str, car
         )
         return
 
+    embed = await info_embed_Generater(result, result_meta, action.locale)
+
+    await action.followup.send(embed=embed)
+
+async def info_embed_Generater(result, result_meta, locale, setThumbnail=None):
     # Convert ISO date to Discord timestamp
     iso_date = result.get('createdAt')
     if iso_date:
@@ -808,7 +734,8 @@ async def objekt_info(action: discord.Interaction, member: str, season: str, car
         discord_timestamp = "Unknown"
 
     # Prepare embed fields
-    accent_color = result.get('accentColor', '#FFFFFF').replace('#', '')
+    accent_color = result.get('backgroundColor', '#FFFFFF').replace('#', '')
+    print(accent_color)
     try:
         color_value = int(accent_color, 16)
     except ValueError:
@@ -820,7 +747,7 @@ async def objekt_info(action: discord.Interaction, member: str, season: str, car
     copies = int(result_meta.get('total', '0'))
     description = result_meta.get('metadata', {}).get('description', '')
     if description:
-        translated_description = translate.translate(description, action.locale)
+        translated_description = translate.translate(description, locale)
     else:
         translated_description = 'No description available.'
 
@@ -843,14 +770,16 @@ async def objekt_info(action: discord.Interaction, member: str, season: str, car
         rate = 'common'
 
     embed.set_author(name=collection_id)
-    embed.set_image(url=front_image_url)
+    if setThumbnail:
+        embed.set_thumbnail(url=front_image_url)
+    else:
+        embed.set_image(url=front_image_url)
+
     embed.add_field(name="Created at", value=discord_timestamp, inline=True)
-    embed.add_field(name="Copies", value=str(copies)+ f" ({rate})", inline=True)
+    embed.add_field(name="Copies", value=str(copies) + f" ({rate})", inline=True)
     embed.add_field(name="Description", value=translated_description, inline=False)
     embed.set_footer(text="Powered by Apollo.cafe, and translated with DeepL")
-
-    await action.followup.send(embed=embed)
-
+    return embed
 
 """# Define the choices for the artist parameter
 artist_choices = [
@@ -1311,127 +1240,6 @@ class verify_induce_view(discord.ui.View):
     async def verify_button_callback(self, action: discord.Interaction):
         await perform_verify(action)
 
-"""
-class title_objekt_view(discord.ui.View):
-    def __init__(self, action: discord.Interaction, objekt_search_result, page):
-        super().__init__(timeout=None)
-        self.action = action
-        self.objekt_search_result = objekt_search_result
-        collections = objekt_search_result['objekts'][0:18]
-
-
-        self.collections = objekt_search_result['objekts']
-        self.objekt_search_result = objekt_search_result
-        self.page = page
-        self.total_page = math.ceil(objekt_search_result['total'] / 18)
-
-
-        # Uis
-        self.select = discord.ui.Select(placeholder=translate.translate('Select title Objekt', action.locale))
-        for i in range(len(collections)):
-            print(collections[i]['collectionId'])
-            self.select.add_option(label=f"{collections[i]['collectionId']}",
-                              value=f"{collections[i]['tokenId']}|{str(collections[i]['objektNo']).zfill(5)}",
-                              description=f"#{str(collections[i]['objektNo']).zfill(5)}")
-
-        # Buttons
-        self.first_page_button = discord.ui.Button(
-                label="|<", style=discord.ButtonStyle.blurple
-            )
-        self.previous_page_button = discord.ui.Button(
-                label="<", style=discord.ButtonStyle.blurple
-            )
-        self.next_page_button = discord.ui.Button(
-                label=">", style=discord.ButtonStyle.blurple
-            )
-        self.last_page_button = discord.ui.Button(
-                label=">|", style=discord.ButtonStyle.blurple
-            )
-
-
-        # Set callbacks
-        self.select.callback = self.select_callback
-        self.first_page_button.callback = self.first_page_callback
-        self.previous_page_button.callback = self.previous_page_callback
-        self.next_page_button.callback = self.next_page_callback
-        self.last_page_button.callback = self.last_page_callback
-
-        self.update_buttons()
-
-
-        # Add buttons to the view
-        self.add_item(self.select)
-        self.add_item(self.first_page_button)
-        self.add_item(self.previous_page_button)
-        self.add_item(self.next_page_button)
-        self.add_item(self.last_page_button)
-
-    async def select_callback(self, action2: discord.Interaction):
-        global register
-        register[action2.user.id]['title_objekt_tokenId'] = self.select.values[0].split('|')[0]
-        save_register()
-        await action2.response.send_message(translate.translate('title OBJEKT now set!', action2.locale), ephemeral=True)
-
-
-    def update_buttons(self):
-        self.first_page_button.disabled = self.page == 1
-        self.previous_page_button.disabled = self.page == 1
-        self.next_page_button.disabled = self.page == self.total_page
-        self.last_page_button.disabled = self.page == self.total_page
-        collections = self.collections[18*(self.page-1):18*(self.page)]
-
-        # Clear and re-add select options
-        self.select.options.clear()  # Clear previous options
-        for i in range(len(collections)):
-            print(collections[i]['collectionId'])
-            self.select.add_option(label=f"{collections[i]['collectionId']}",
-                                   value=f"{collections[i]['tokenId']}|{str(collections[i]['objektNo']).zfill(5)}",
-                                   description=f"#{str(collections[i]['objektNo']).zfill(5)}")
-
-
-    async def update_message(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-
-        start_after_num = (self.page - 1) * 18
-        options = {
-            "artist": None,
-            "season": None,
-            "sort": 'newest',
-            "class": None,
-            "member": None,
-            'cosmo_address': None,
-            'cosmo_nickname': None,
-            'discord_nickname': None,
-            'list_name': None,
-            'list_slug': None,
-        }
-        img = await collection_img.create_image(
-            options, self.objekt_search_result, start_after_num, (self.page, self.total_page), 18, 'choose'
-        )
-        self.update_buttons()
-
-
-        await interaction.edit_original_response(
-            attachments=[discord.File(fp=img, filename=f"choose.webp")], view=self
-        )
-
-    async def first_page_callback(self, interaction: discord.Interaction):
-        self.page = 1
-        await self.update_message(interaction)
-
-    async def previous_page_callback(self, interaction: discord.Interaction):
-        if self.page > 1:
-            self.page -= 1
-            await self.update_message(interaction)
-
-    async def next_page_callback(self, interaction: discord.Interaction):
-        if self.page < self.total_page:
-            self.page += 1
-            await self.update_message(interaction)
-
-    async def last_page_callback(self, interaction: discord.Interaction):
-        self.page = self.total_page
-        await self.update_message(interaction)"""
 
 
 @client.tree.command(name="activity", description="Show trade history")
