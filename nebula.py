@@ -438,6 +438,9 @@ class CollectionView(discord.ui.View):
         await action2.response.send_message(translate.translate('title OBJEKT now set!', action2.locale), ephemeral=True)
 
     async def info_callback(self, action2: discord.Interaction):
+        await action2.response.defer(ephemeral=True)
+
+
         info = {
             'season': self.select.values[0].split('|')[0],
             'member': self.select.values[0].split('|')[1],
@@ -452,7 +455,7 @@ class CollectionView(discord.ui.View):
         result_meta = await apollo.search_objekt_meta(info)
         embed = await info_embed_Generater(result, result_meta, action2.locale, True)
 
-        await action2.response.send_message(embed=embed, ephemeral=True)
+        await action2.followup.send(embed=embed, ephemeral=True)
 
     def update_buttons(self, title = None, info=None):
         self.first_page_button.disabled = self.page == 1
