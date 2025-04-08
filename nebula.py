@@ -443,7 +443,7 @@ class CollectionView(discord.ui.View):
 
 
                 self.select.add_option(label=f"{collections[i]['collectionId']}",
-                                       value=f"{slug[0]}|{slug[1]}|{slug[2][:-1]}|{slug[2][-1:]}",
+                                       value=f"{slug[0]}|{slug[1]}|{slug[2][:-1]}|{slug[2][-1:]}|{i}",
                                        description=f"Click to show objekt info")
 
             self.select.callback = self.info_callback
@@ -509,7 +509,7 @@ class CollectionView(discord.ui.View):
                 slug = collections[i]['slug'].split('-')
 
                 self.select.add_option(label=f"{collections[i]['collectionId']}",
-                                       value=f"{slug[0]}|{slug[1]}|{slug[2][:-1]}|{slug[2][-1:]}",
+                                       value=f"{slug[0]}|{slug[1]}|{slug[2][:-1]}|{slug[2][-1:]}|{i}",
                                        description=f"Click to show objekt info")
 
     async def update_message(self, interaction: discord.Interaction):
