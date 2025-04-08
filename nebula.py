@@ -20,8 +20,6 @@ from typing import Optional, List
 import typing
 import pickle
 
-#from matplotlib.pyplot import title
-
 import activity_img
 
 import apollo
@@ -345,6 +343,31 @@ async def get_user_info(action, cosmo_nickname, discord_user):
         return cosmo_user, cosmo_address, discord_nickname
 
 
+class InfoshareView(discord.ui.View):
+    def __init__(self, original_action: discord.Interaction,original_message: discord.Interaction.message, embed):
+        super().__init__(timeout=None)
+
+        self.original_message = original_message
+        self.original_action = original_action
+        self.embed = embed
+
+        # Buttons
+        self.share = discord.ui.Button(
+            label="Share on this channel", style=discord.ButtonStyle.gray
+            )
+        self.share.callback = self.share_callback
+        self.add_item(self.share)
+
+
+    async def share_callback(self, action2: discord.Interaction):
+        await action2.response.defer(ephemeral=False)
+
+        #embed = await info_embed_Generater(self.result, self.result_meta, action2.locale, True)
+        await self.original_message.delete()
+        await self.original_action.followup.send(embed=self.embed)
+
+
+
 class CollectionView(discord.ui.View):
     def __init__(self, options, objekt_search_result, cosmo_user, page, total_page, objekt_per_page, title_name='Collect', list_slug=None, action=None, info=None):
         super().__init__(timeout=None)
@@ -438,7 +461,7 @@ class CollectionView(discord.ui.View):
         await action2.response.send_message(translate.translate('title OBJEKT now set!', action2.locale), ephemeral=True)
 
     async def info_callback(self, action2: discord.Interaction):
-        await action2.response.defer(ephemeral=True)
+        await action2.response.defer()
 
 
         info = {
@@ -450,12 +473,14 @@ class CollectionView(discord.ui.View):
 
         # Fetch Objekt details
         result = await apollo.search_objekt_by_slug(info)
-
-
         result_meta = await apollo.search_objekt_meta(info)
+
         embed = await info_embed_Generater(result, result_meta, action2.locale, True)
 
-        await action2.followup.send(embed=embed, ephemeral=True)
+        followup_msg = await action2.followup.send(embed=embed, ephemeral=True, wait=True)
+
+        view = InfoshareView(action2, followup_msg, embed)
+        await followup_msg.edit(view=view)
 
     def update_buttons(self, title = None, info=None):
         self.first_page_button.disabled = self.page == 1
