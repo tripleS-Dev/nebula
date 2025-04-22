@@ -95,13 +95,16 @@ async def search_objekt_by_slug(info):
                 print(f"Failed request: Status {response.status}, Response: {await response.text()}")  # Debug: Print the error
                 return None
 
-async def search_trade_history(address: str):
+async def search_trade_history(address: str, nextStartAfter = None):
     url = f"https://apollo.cafe/api/transfers/{address}"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             if response.status == 200: # 요청 성공
                 result = await response.json()
-                return result["results"]
+                if nextStartAfter:
+                    return result["results"], result["nextStartAfter"]
+                else:
+                    return result["results"]
             else: # 요청 실패
                 print(f"Failed request: Status {response.status}, Response: {await response.text()}")  # Debug: Print the error
                 return None
@@ -314,7 +317,14 @@ async def como(address: str, artist: str):
 
 
 if __name__ == "__main__":
-    r = asyncio.run(como('0x1F38b8c3a5965704a6Ff6E9b750F771DD1C3C9D4', 'tripleS'))
+    #r = asyncio.run(objekt_search('0x9526E51ee3D9bA02Ef674eB1E41FB24Dc2165380',{}))
+    info = {
+        'season': 'ever01',
+        'member': 'hyerin',
+        'number': '100',
+        'line': 'z',
+    }
+    r = asyncio.run(stats('0xffDacBA5A32434ac2C55E589e7Df567129726c7E'))
     """ print(r)
 
     artist = 'artms'
@@ -326,7 +336,9 @@ if __name__ == "__main__":
         else:
             for season in i['seasons']:
                 season_percent_value[season['name']] = season['count']"""
-    print(r)
+    import pprint
+
+    pprint.pprint(r)
     #print(sum(r.values()))
 
 

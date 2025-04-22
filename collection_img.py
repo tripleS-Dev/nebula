@@ -62,6 +62,7 @@ async def create_image(options, objekt_search_result, start_after, page, objekt_
     # 이미지 저장
     buffered_image = BytesIO()
     #img.save(buffered_image, format="webp", subsampling=10, quality=90)
+    img.show()
     img.convert('RGB').save(buffered_image, format="jpeg", subsampling=10, quality=90)
     #img.save(buffered_image, format="png", optimize=False)
     buffered_image.seek(0)

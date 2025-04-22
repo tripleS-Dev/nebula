@@ -103,7 +103,7 @@ async def main(options, forDebug = False):
     # Define data fetching functions
     async def fetch_objekt_data():
         try:
-            return await apollo.objekt_search(cosmo_address,{'sort': 'newest', 'artist': artist})
+            return await apollo.objekt_search(cosmo_address,{'sort': 'newest', 'artist': artist, 'page': '0'})
         except Exception as e:
             print(f"Error fetching objekt data: {e}")
             return None
@@ -698,7 +698,7 @@ def convert_timestamp_to_date(timestamp_str):
 options = {
     'cosmo_nickname': 'ILoveYouyeon',
     'discord_nickname': 'hj_sss',
-    'cosmo_address': '0xAF1B00a0AEE058c1209637fc8fea4f5C8a2B64e2',
+    'cosmo_address': '0xffDacBA5A32434ac2C55E589e7Df567129726c7E',
     'artist': 'tripleS',
     'title_objekt_tokenId': 1557328
 }

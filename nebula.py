@@ -24,6 +24,7 @@ import activity_img
 
 import apollo
 import collection_img
+import lunar
 #import cosmo
 import teest
 import profile_img5se3
@@ -112,7 +113,7 @@ class Client(commands.Bot):
 client = Client()
 
 async def name_auto(action: discord.Interaction, current: str) -> typing.List[app_commands.Choice[str]]:
-    matching_files, address = await apollo.user_search_by_name(current, action.locale)
+    matching_files, address = await lunar.user_search_by_name(current, action.locale)
     return [app_commands.Choice(name=num, value=num) for num in matching_files]
 
 @client.tree.command(name="connect", description="connect discord-cosmo")
@@ -197,8 +198,8 @@ async def member_autocomplete(interaction: discord.Interaction, current: str):
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 async def collection(
     action: discord.Interaction,
-    cosmo_nickname: Optional[str],
-    discord_user: Optional[discord.User],
+    cosmo_nickname: str,
+    #discord_user: Optional[discord.User],
     sort: Optional[str],
     season: Optional[str],
     class_: Optional[str],
@@ -208,6 +209,7 @@ async def collection(
     artist: Optional[str],
     array: Optional[int]
 ):
+    discord_user = None
     print(f"user!!!! : {action.user.name}")
     if member:
         # 사용자가 입력한 값을 소문자로 변환하여 키로 사용
@@ -433,7 +435,7 @@ class CollectionView(discord.ui.View):
 
             self.add_item(self.go_web_button)
 
-        if info:
+        if info and total_page != 0:
             # Uis
             self.select = discord.ui.Select(placeholder='Show objekt info')
             for i in range(len(collections)):
@@ -620,6 +622,8 @@ async def apollo_list(
     season: Optional[str],
     array: Optional[int]
 ):
+    return await action.response.send_message(translate.translate('Under construction due to changes in Cosmo.', action.locale), ephemeral=True)
+
     print(f"user!!!! : {action.user.name}")
     if action.user.id not in register:
         await action.response.send_message(
@@ -833,6 +837,7 @@ async def profile(
     artist: Optional[str],
     discord_user: Optional[discord.User]
 ):
+    return await action.response.send_message(translate.translate('Under construction due to changes in Cosmo.', action.locale), ephemeral=True)
     print(f"user!!!! : {action.user.name}")
     await action.response.defer()
 
